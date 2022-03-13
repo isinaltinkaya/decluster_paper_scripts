@@ -1,0 +1,19 @@
+### example config file
+
+decluster_path: /path/to/decluster
+preseq_path: /path/to/preseq
+samtools_path: /path/to/samtools
+
+
+sample_list: bamlist
+pxd_range_start: 5000
+pxd_range_end: 250000
+pxd_range_by: 1000
+
+dataset_id: list1
+
+xLength: 32103
+yLength: 36059
+nTiles: 78
+
+recommended_pxd: 12000

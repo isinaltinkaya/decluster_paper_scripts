@@ -1,0 +1,81 @@
+
+
+
+WDIR="/maps/projects/lundbeck/scratch/pfs488/decluster/benchmark_2211/"
+SAMPLE,=glob_wildcards(WDIR+"data/bam/{sample}-GRCh37.bam")
+
+print(SAMPLE)
+
+dataset={}
+for s in SAMPLE:
+	dataset[s]={"BAM": [WDIR+"data/bam/"+s+".bam"]}
+	dataset[s]={"FQ": [WDIR+"data/fq/"+s+".R1.fq.gz", WDIR+"data/fq/"+s+".R2.fq.gz"]}
+print(dataset)
+
+
+#
+# SAMPLE=glob_wildcards(WDIR+"data/bam/{sample}-GRCh37.bam")
+# print("A")
+#
+#
+# dataset={s for s in SAMPLE}
+#
+# for s in SAMPLE:
+	# print(s)
+	# dataset[s]={"SAMPLE": WDIR+"data/bam/"+s+".bam"}
+	# # dataset[SAMPLE]["FQ1"]=WDIR+"data/fq/"+s+".R1.fq.gz"
+	# # dataset[SAMPLE]["FQ2"]=WDIR+"data/fq/"+s+".R2.fq.gz"
+#
+# [ WDIR+"data/fq/"+i+".R1.fq.gz" for i in SAMPLE]
+
+# print(dataset)
+
+
+# /maps/projects/lundbeck/scratch/pfs488/decluster/benchmark_2211/data/bam/017402T_mesoneo_MA1454_LV1012788844UL1_U_KJRIO_200715-GRCh37.bam
+#
+#
+# rule all:
+	# input:
+		# expand(),
+#
+# rule run_decluster_local:
+	# input:
+	# output:
+	# params:
+		# decluster="/maps/projects/lundbeck/scratch/pfs488/decluster/benchmark_2211/tools/decluster/decluster",
+	# log:
+	# benchmark:
+		# repeat("", 5)
+	# shell:
+		# """
+		# """
+#
+# #decluster -b -p 20000 -@ 8 -q 30 -o output.bam input.bam
+#
+# rule run_decluster_global:
+	# input:
+	# output:
+	# params:
+		# decluster="/maps/projects/lundbeck/scratch/pfs488/decluster/benchmark_2211/tools/decluster/decluster",
+	# log:
+	# benchmark:
+		# repeat("", 5)
+	# shell:
+		# """
+		# """
+#
+#
+# rule run_clumpify:
+	# input:
+	# output:
+	# params:
+		# clumpify="/maps/projects/lundbeck/scratch/pfs488/decluster/benchmark_2211/tools/bbmap/clumpify.sh",
+	# log:
+	# benchmark:
+		# repeat("", 5)
+	# shell:
+		# """
+		# bash {params.clumpify}
+		# """
+#
+#

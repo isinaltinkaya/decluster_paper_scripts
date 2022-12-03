@@ -4,78 +4,279 @@
 WDIR="/maps/projects/lundbeck/scratch/pfs488/decluster/benchmark_2211/"
 SAMPLE,=glob_wildcards(WDIR+"data/bam/{sample}-GRCh37.bam")
 
-print(SAMPLE)
-
 dataset={}
 for s in SAMPLE:
-	dataset[s]={"BAM": [WDIR+"data/bam/"+s+".bam"]}
-	dataset[s]={"FQ": [WDIR+"data/fq/"+s+".R1.fq.gz", WDIR+"data/fq/"+s+".R2.fq.gz"]}
-print(dataset)
+	dataset[s]={"BAM": [WDIR+"data/bam/"+s+"-hg38.bam"],
+			"FQ": [WDIR+"data/fq/"+s+".R1.fq.gz", WDIR+"data/fq/"+s+".R2.fq.gz"]}
 
 
-#
-# SAMPLE=glob_wildcards(WDIR+"data/bam/{sample}-GRCh37.bam")
-# print("A")
-#
-#
-# dataset={s for s in SAMPLE}
-#
-# for s in SAMPLE:
-	# print(s)
-	# dataset[s]={"SAMPLE": WDIR+"data/bam/"+s+".bam"}
-	# # dataset[SAMPLE]["FQ1"]=WDIR+"data/fq/"+s+".R1.fq.gz"
-	# # dataset[SAMPLE]["FQ2"]=WDIR+"data/fq/"+s+".R2.fq.gz"
-#
-# [ WDIR+"data/fq/"+i+".R1.fq.gz" for i in SAMPLE]
+DIST=["global","local"]
 
-# print(dataset)
+REF="/maps/projects/lundbeck/data/hg38/genome.fa"
+# Reference=hg38
 
 
-# /maps/projects/lundbeck/scratch/pfs488/decluster/benchmark_2211/data/bam/017402T_mesoneo_MA1454_LV1012788844UL1_U_KJRIO_200715-GRCh37.bam
+# def get_log_from_output(rule):
+	# output_string = '{rule.output}'
+	# return output_string.format(rule=rule)
+rule all:
+	input:
+		expand(WDIR+"results/adapter_removal/{sample}.collapsed.gz",
+				sample=SAMPLE),
+		expand(WDIR+"results/bwa_aln/{sample}.collapsed.sai",
+				sample=SAMPLE),
+		expand(WDIR+"results/bwa_samse/{sample}.bam",
+				sample=SAMPLE),
+		expand(WDIR+"results/validate_fq/{sample}.validate.out",
+				sample=SAMPLE),
+		expand("results/clumpify/collapsed_fq/{sample}.fastq",
+				sample=SAMPLE),
+		expand("results/clumpify/collapsed_fq/bwa_aln/{sample}.sai",
+				sample=SAMPLE),
+		expand("results/clumpify/collapsed_fq/bwa_samse/{sample}_clumpify-dedup.bam",
+				sample=SAMPLE),
+		# expand(WDIR+"results/bwa_sampe/{sample}.bam",
+				# sample=SAMPLE),
+		# expand("results/decluster/{distmode}/{sample}.out.dupstat.txt",
+				# sample=SAMPLE,
+				# distmode=DIST),
+		# expand("results/clumpify/collapsed_fq/{sample}.out",
+				# sample=SAMPLE)
+
+rule validate_fq:
+	input:
+		R1=lambda wildcards: dataset[wildcards.sample]["FQ"][0],
+		R2=lambda wildcards: dataset[wildcards.sample]["FQ"][1]
+	output:
+		WDIR+"results/validate_fq/{sample}.validate.out"
+	shell:
+		"""
+		java -jar /maps/projects/lundbeck/scratch/pfs488/decluster/benchmark_2211/tools/validatefastq-assembly-0.1.1.jar -i {input.R1} -j {input.R2} > {output} 2>&1
+		"""
+
+
+
+rule adapter_removal:
+	input:
+		R1=lambda wildcards: dataset[wildcards.sample]["FQ"][0],
+		R2=lambda wildcards: dataset[wildcards.sample]["FQ"][1]
+	output:
+		WDIR+"results/adapter_removal/{sample}.collapsed.gz"
+	params:
+		AdapterRemoval="/maps/projects/lundbeck/apps/adapterremoval-2.3.2/build/AdapterRemoval",
+		prefix=WDIR+"results/adapter_removal/{sample}",
+		# prefix="{sample}",
+	log:
+		WDIR+"results/logs/adapter_removal/{sample}.collapsed.gz"
+	conda:
+		"/maps/projects/lundbeck/scratch/pfs488/decluster/benchmark_2211/decluster_paper_scripts/env/decluster_benchmarking_env.yml"
+	shell:
+		"""
+		( {params.AdapterRemoval} --file1 {input.R1} --file2 {input.R2} --basename {params.prefix}	--minlength 30 --collapse-conservatively --gzip --adapter1 "AGATCGGAAGAGCACACGTCTGAACTCCAGTCA" --adapter2 "AGATCGGAAGAGCGTCGTGTAGGGAAAGAGTGT") 2> {log}
+		"""
+
+
+
+rule bwa_aln:
+	input:
+		collapsed_gz=WDIR+"results/adapter_removal/{sample}.collapsed.gz",
+		pair1_truncated_gz=WDIR+"results/adapter_removal/{sample}.pair1.truncated.gz",
+		pair2_truncated_gz=WDIR+"results/adapter_removal/{sample}.pair2.truncated.gz",
+	output:
+		collapsed_sai=WDIR+"results/bwa_aln/{sample}.collapsed.sai",
+		pair1_sai=WDIR+"results/bwa_aln/{sample}.pair1.sai",
+		pair2_sai=WDIR+"results/bwa_aln/{sample}.pair2.sai",
+	params:
+		ref=REF,
+	log:
+		WDIR+"results/logs/bwa_aln/{sample}.collapsed.sai",
+	threads: 8
+	conda:
+		"/maps/projects/lundbeck/scratch/pfs488/decluster/benchmark_2211/decluster_paper_scripts/env/decluster_benchmarking_env.yml"
+	shell:
+		"""
+		( bwa aln -t {threads} {params.ref} {input.collapsed_gz} -l 32 -f {output.collapsed_sai} ) 2> {log}
+		( bwa aln -t {threads} {params.ref} {input.pair1_truncated_gz} -l 32 -f {output.pair1_sai} ) 2> {log}.p1
+		( bwa aln -t {threads} {params.ref} {input.pair2_truncated_gz} -l 32 -f {output.pair2_sai} ) 2> {log}.p2
+		"""
+
+
+#get collapsed output
+rule bwa_samse:
+	input:
+		collapsed_gz=WDIR+"results/adapter_removal/{sample}.collapsed.gz",
+		collapsed_sai=WDIR+"results/bwa_aln/{sample}.collapsed.sai",
+	output:
+		WDIR+"results/bwa_samse/{sample}.bam",
+	params:
+		ref=REF,
+		readgroup=r'@RG\tID:{sample}\tSM:{sample}\tLB:collapsed',
+	threads:
+		8
+	log:
+		WDIR+"results/logs/bwa_samse/{sample}.bam",
+	conda:
+		"/maps/projects/lundbeck/scratch/pfs488/decluster/benchmark_2211/decluster_paper_scripts/env/decluster_benchmarking_env.yml"
+	shell:
+		"""
+		( bwa samse -r '{params.readgroup}' {params.ref} {input.collapsed_sai} {input.collapsed_gz} | samtools sort -@{threads} -o {output} ) 2> {log}
+		"""
+
+
+#get paired output
+rule bwa_sampe:
+	input:
+		pair1_sai=WDIR+"results/bwa_aln/{sample}.pair1.sai",
+		pair2_sai=WDIR+"results/bwa_aln/{sample}.pair2.sai",
+		pair1_truncated_gz=WDIR+"results/adapter_removal/{sample}.pair1.truncated.gz",
+		pair2_truncated_gz=WDIR+"results/adapter_removal/{sample}.pair2.truncated.gz",
+	output:
+		WDIR+"results/bwa_sampe/{sample}.bam",
+	params:
+		ref=REF,
+		readgroup=r'@RG\tID:{sample}\tSM:{sample}\tLB:paired',
+	log:
+		WDIR+"results/logs/bwa_sampe/{sample}.bam",
+	conda:
+		"/maps/projects/lundbeck/scratch/pfs488/decluster/benchmark_2211/decluster_paper_scripts/env/decluster_benchmarking_env.yml"
+	shell:
+		"""
+		( bwa sampe -r '{params.readgroup}' {params.ref} {input.pair1_sai} {input.pair2_sai} {input.pair1_truncated_gz} {input.pair1_truncated_gz} | samtools sort -@{threads} -o {output} ) 2> {log}
+		"""
+
+
+
 #
+# Benchmark 1)
+# Run clumpify on the "collapsed fastq", benchmark time
+# Map the output fastq from clumpify that contains the pcr dups (therefore cluster duplicates removed)
+# Run preseq
 #
-# rule all:
+rule run_clumpify_collapsed:
+	input:
+		collapsed_gz=WDIR+"results/adapter_removal/{sample}.collapsed.gz",
+	output:
+		"results/clumpify/collapsed_fq/{sample}.fastq"
+	params:
+		clumpify="/maps/projects/lundbeck/scratch/pfs488/decluster/benchmark_2211/tools/bbmap/clumpify.sh",
+	log:
+		"results/logs/clumpify/collapsed_fq/{sample}.out"
+	benchmark:
+		repeat("results/benchmark/clumpify/collapsed_fq/{sample}.out",20)
+	shell:
+		"""
+		( bash {params.clumpify} -in={input} -out={output} -dupedist=20000 dedupe=t optical=t dupedist=20000 spantiles=t adjacent=t ) 2> {log}
+		"""
+
+
+
+rule bwa_aln_dedup_collapsed:
+	input:
+		"results/clumpify/collapsed_fq/{sample}.fastq"
+	output:
+		"results/clumpify/collapsed_fq/bwa_aln/{sample}.sai"
+	params:
+		ref=REF,
+	log:
+		"results/logs/clumpify/collapsed_fq/bwa_aln/{sample}.sai"
+	threads: 8
+	conda:
+		"/maps/projects/lundbeck/scratch/pfs488/decluster/benchmark_2211/decluster_paper_scripts/env/decluster_benchmarking_env.yml"
+	shell:
+		"""
+		( bwa aln -t {threads} {params.ref} {input} -l 32 -f {output} ) 2> {log}
+		"""
+
+rule bwa_samse_dedup:
+	input:
+		fq="results/clumpify/collapsed_fq/{sample}.fastq",
+		sai="results/clumpify/collapsed_fq/bwa_aln/{sample}.sai"
+	output:
+		"results/clumpify/collapsed_fq/bwa_samse/{sample}_clumpify-dedup.bam"
+	params:
+		ref=REF,
+		readgroup=r'@RG\tID:{sample}\tSM:{sample}\tLB:collapsed_clumpify-dedup',
+	threads:
+		8
+	log:
+		"results/logs/clumpify/collapsed_fq/bwa_samse/{sample}_clumpify-dedup.bam"
+	conda:
+		"/maps/projects/lundbeck/scratch/pfs488/decluster/benchmark_2211/decluster_paper_scripts/env/decluster_benchmarking_env.yml"
+	shell:
+		"""
+		( bwa samse -r '{params.readgroup}' {params.ref} {input.sai} {input.fq} | samtools sort -@{threads} -o {output} ) 2> {log}
+		"""
+
+
+
+#
+# # Benchmark 2)
+# # Map the "collapsed fastq"
+# # Run decluster with bams created in the previous step, benchmark time
+# # Run preseq
+# #
+# rule run_decluster_distmode:
 	# input:
-		# expand(),
-#
-# rule run_decluster_local:
-	# input:
+		# WDIR+"results/bwa_samse/{sample}.bam",
 	# output:
+		# "results/decluster/collapsed_bam/{distmode}/{sample}.out.noClusterDuplicates.bam"
 	# params:
 		# decluster="/maps/projects/lundbeck/scratch/pfs488/decluster/benchmark_2211/tools/decluster/decluster",
+		# prefix="results/decluster/{distmode}/{sample}.out"
 	# log:
+		# "results/logs/decluster/{distmode}/{sample}.out"
 	# benchmark:
-		# repeat("", 5)
+		# repeat("results/benchmark/decluster/{distmode}/{sample}.out", 20)
 	# shell:
 		# """
+		# ({params.decluster} -0 -d {wildcards.distmode} -b -p 20000 -@ 8 -q 30 -o {params.prefix} {input}) 2> {log}
 		# """
 #
-# #decluster -b -p 20000 -@ 8 -q 30 -o output.bam input.bam
 #
-# rule run_decluster_global:
+#
+#
+#
+# rule run_preseq_after_clumpify:
 	# input:
 	# output:
-	# params:
-		# decluster="/maps/projects/lundbeck/scratch/pfs488/decluster/benchmark_2211/tools/decluster/decluster",
 	# log:
 	# benchmark:
-		# repeat("", 5)
-	# shell:
-		# """
-		# """
+	# params:
+		# lcextrap_error="results/without_decluster/lcextrap_error.txt",
+		# lcextrap_success="results/without_decluster/lcextrap_success.txt",
+		# lcextrap_unknownerror="results/without_decluster/lcextrap_unknownerror.txt",
+		# outfile="results/without_decluster/{sample}/{sample}_without_decluster.table.txt",
+	# conda:
+		# "/maps/projects/lundbeck/scratch/pfs488/decluster/benchmark_2211/decluster_paper_scripts/env/decluster_benchmarking_env.yml"
+	# run:
+		# import subprocess
+		# shell( "touch " + output[0] + ";")
+		# p=subprocess.Popen("( preseq lc_extrap -B " + input[0] + " -o " + params.outfile + " ) 2> " +log[0] + ";", shell=True, stderr=subprocess.PIPE, stdout=subprocess.PIPE)
+		# stdout, stderr= p.communicate()
+		# if p.returncode == 1:
+			# shell(" echo " + wildcards.sample + " >> "+ params.lcextrap_error + ";")
+		# elif p.returncode == 0:
+			# shell(" echo " + wildcards.sample + " >> "+ params.lcextrap_success)
+		# else:
+			# shell(" echo " + wildcards.sample + " >> "+ params.lcextrap_unknownerror)
 #
+
+
 #
-# rule run_clumpify:
+# rule run_preseq_after_decluster:
 	# input:
+		# "results/decluster/collapsed_bam/{distmode}/{sample}.out.noClusterDuplicates.bam"
 	# output:
 	# params:
-		# clumpify="/maps/projects/lundbeck/scratch/pfs488/decluster/benchmark_2211/tools/bbmap/clumpify.sh",
 	# log:
-	# benchmark:
-		# repeat("", 5)
+	# conda:
+		# "/maps/projects/lundbeck/scratch/pfs488/decluster/benchmark_2211/decluster_paper_scripts/env/decluster_benchmarking_env.yml"
 	# shell:
 		# """
-		# bash {params.clumpify}
+		# ( preseq ) 2> {log}
 		# """
 #
 #
+
+
+

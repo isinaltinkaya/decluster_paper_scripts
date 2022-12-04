@@ -13,12 +13,8 @@ for s in SAMPLE:
 DIST=["global","local"]
 
 REF="/maps/projects/lundbeck/data/hg38/genome.fa"
-# Reference=hg38
 
 
-# def get_log_from_output(rule):
-	# output_string = '{rule.output}'
-	# return output_string.format(rule=rule)
 rule all:
 	input:
 		expand(WDIR+"results/adapter_removal/{sample}.collapsed.gz",
@@ -35,13 +31,14 @@ rule all:
 				sample=SAMPLE),
 		expand("results/clumpify/collapsed_fq/bwa_samse/{sample}_clumpify-dedup.bam",
 				sample=SAMPLE),
-		# expand(WDIR+"results/bwa_sampe/{sample}.bam",
-				# sample=SAMPLE),
-		# expand("results/decluster/{distmode}/{sample}.out.dupstat.txt",
-				# sample=SAMPLE,
-				# distmode=DIST),
-		# expand("results/clumpify/collapsed_fq/{sample}.out",
-				# sample=SAMPLE)
+		expand("results/clumpify/collapsed_fq/preseq/{sample}_clumpify-dedup-preseq.table.txt",
+				sample=SAMPLE),
+		expand("results/decluster/collapsed_bam/preseq/{distmode}/{sample}_collapsed-decluster-preseq.table.txt",
+				distmode=DIST,
+				sample=SAMPLE),
+		expand("results/decluster/collapsed_bam/{distmode}/{sample}.out.noClusterDuplicates.bam",
+				distmode=DIST,
+				sample=SAMPLE),
 
 rule validate_fq:
 	input:
@@ -208,75 +205,70 @@ rule bwa_samse_dedup:
 		"""
 
 
-
-#
-# # Benchmark 2)
-# # Map the "collapsed fastq"
-# # Run decluster with bams created in the previous step, benchmark time
-# # Run preseq
-# #
-# rule run_decluster_distmode:
-	# input:
-		# WDIR+"results/bwa_samse/{sample}.bam",
-	# output:
-		# "results/decluster/collapsed_bam/{distmode}/{sample}.out.noClusterDuplicates.bam"
-	# params:
-		# decluster="/maps/projects/lundbeck/scratch/pfs488/decluster/benchmark_2211/tools/decluster/decluster",
-		# prefix="results/decluster/{distmode}/{sample}.out"
-	# log:
-		# "results/logs/decluster/{distmode}/{sample}.out"
-	# benchmark:
-		# repeat("results/benchmark/decluster/{distmode}/{sample}.out", 20)
-	# shell:
-		# """
-		# ({params.decluster} -0 -d {wildcards.distmode} -b -p 20000 -@ 8 -q 30 -o {params.prefix} {input}) 2> {log}
-		# """
-#
-#
-#
-#
-#
-# rule run_preseq_after_clumpify:
-	# input:
-	# output:
-	# log:
-	# benchmark:
-	# params:
-		# lcextrap_error="results/without_decluster/lcextrap_error.txt",
-		# lcextrap_success="results/without_decluster/lcextrap_success.txt",
-		# lcextrap_unknownerror="results/without_decluster/lcextrap_unknownerror.txt",
-		# outfile="results/without_decluster/{sample}/{sample}_without_decluster.table.txt",
-	# conda:
-		# "/maps/projects/lundbeck/scratch/pfs488/decluster/benchmark_2211/decluster_paper_scripts/env/decluster_benchmarking_env.yml"
-	# run:
-		# import subprocess
-		# shell( "touch " + output[0] + ";")
-		# p=subprocess.Popen("( preseq lc_extrap -B " + input[0] + " -o " + params.outfile + " ) 2> " +log[0] + ";", shell=True, stderr=subprocess.PIPE, stdout=subprocess.PIPE)
-		# stdout, stderr= p.communicate()
-		# if p.returncode == 1:
-			# shell(" echo " + wildcards.sample + " >> "+ params.lcextrap_error + ";")
-		# elif p.returncode == 0:
-			# shell(" echo " + wildcards.sample + " >> "+ params.lcextrap_success)
-		# else:
-			# shell(" echo " + wildcards.sample + " >> "+ params.lcextrap_unknownerror)
-#
+rule run_preseq_after_clumpify:
+	input:
+		"results/clumpify/collapsed_fq/bwa_samse/{sample}_clumpify-dedup.bam"
+	output:
+		"results/clumpify/collapsed_fq/preseq/{sample}_clumpify-dedup-preseq.table.txt",
+	log:
+		"results/logs/clumpify/collapsed_fq/preseq/{sample}_clumpify-dedup-preseq.table.txt",
+	conda:
+		"/maps/projects/lundbeck/scratch/pfs488/decluster/benchmark_2211/decluster_paper_scripts/env/decluster_benchmarking_env.yml"
+	shell:
+		"""
+		(
+		preseq lc_extrap -B {input} -o {output}
+		) 2> {log}
+		"""
 
 
+
+
+# Benchmark 2)
+# Map the "collapsed fastq"
+# Run decluster with bams created in the previous step, benchmark time
+# Run preseq
 #
-# rule run_preseq_after_decluster:
-	# input:
-		# "results/decluster/collapsed_bam/{distmode}/{sample}.out.noClusterDuplicates.bam"
-	# output:
-	# params:
-	# log:
-	# conda:
-		# "/maps/projects/lundbeck/scratch/pfs488/decluster/benchmark_2211/decluster_paper_scripts/env/decluster_benchmarking_env.yml"
-	# shell:
-		# """
-		# ( preseq ) 2> {log}
-		# """
-#
-#
+rule run_decluster_distmode:
+	input:
+		WDIR+"results/bwa_samse/{sample}.bam",
+	output:
+		"results/decluster/collapsed_bam/{distmode}/{sample}.out.noClusterDuplicates.bam"
+	params:
+		decluster="/maps/projects/lundbeck/scratch/pfs488/decluster/benchmark_2211/tools/decluster/decluster",
+		prefix="results/decluster/collapsed_bam/{distmode}/{sample}.out"
+	log:
+		"results/logs/decluster/{distmode}/{sample}.out"
+	benchmark:
+		repeat("results/benchmark/decluster/{distmode}/{sample}.out", 20)
+	shell:
+		"""
+		({params.decluster} -0 -d {wildcards.distmode} -b -p 20000 -@ 1 -q 30 -o {params.prefix} {input}) 2> {log}
+		"""
+
+
+
+
+
+
+
+rule run_preseq_after_decluster:
+	input:
+		"results/decluster/collapsed_bam/{distmode}/{sample}.out.noClusterDuplicates.bam"
+	output:
+		"results/decluster/collapsed_bam/preseq/{distmode}/{sample}_collapsed-decluster-preseq.table.txt"
+	log:
+		"results/logs/decluster/collapsed_bam/preseq/{distmode}/{sample}_collapsed-decluster-preseq.table.txt"
+	conda:
+		"/maps/projects/lundbeck/scratch/pfs488/decluster/benchmark_2211/decluster_paper_scripts/env/decluster_benchmarking_env.yml"
+	shell:
+		"""
+		(
+		preseq lc_extrap -B {input} -o {output}
+		) 2> {log}
+		"""
+
+
 
 
 

@@ -2,9 +2,17 @@ library(dplyr)
 #library(tidyr)
 library(ggplot2)
 
+asDirPath <- function(string){
+  if(!endsWith(string,"/"))string<-paste0(string,"/")
+  if(!dir.exists(string))warning("Directory does not exist, will exit!")
+  return(string)
+}
 
-d<-read.csv("/home/isin/Mount/decluster/benchmark_2211/results/benchmark/merged_benchmark")
 
+PDIR="/home/isin/Projects/decluster/decluster_benchmark_plots_2212/v2/"
+PDIR=asDirPath(PDIR)
+
+d<-read.csv("/home/isin/Mount/decluster/benchmark_2211/results/benchmark/merged_benchmark_v2")
 
 
 # colname	type (unit)	description
@@ -49,131 +57,155 @@ d$io_in_gb <- MB_to_GB(d$io_in_mb)
 d$io_out_gb <- MB_to_GB(d$io_out_mb)
 d$time_hms <- format_hms(d$time_hms)
 
-
-PDIR="decluster_benchmark_plots_2212/"
-
-p <- ggplot(d, aes(x = tool, y = seconds)) +
-  xlab("Tool") +
+p <- ggplot(d, aes(color = tool, x = id, y = seconds)) +
+  xlab("") +
   ylab("Runtime (seconds)") +
   geom_boxplot()+
   coord_flip()+
   theme_bw()+
-  geom_point(shape=1,alpha=0.5)
+  geom_point(shape=1,alpha=0.5)+
+  theme(legend.position="top")+labs(color="Tool")
 p
-ggsave(paste0(PDIR,"decluster_bm_plot1.png"),p)
+ggsave(paste0(PDIR,"decluster_bm_221209_plot1.png"),p)
 
-p <- ggplot(d, aes(x = tool, y = max_rss_mb)) +
-  xlab("Tool") +
+p <- ggplot(d, aes(color = tool, x = id, y = max_rss_mb)) +
+  xlab("") +
   ylab("Maximum RAM usage (MB)") +
   geom_boxplot()+
   coord_flip()+
   theme_bw()+
-  geom_point(shape=1,alpha=0.5)
+  geom_point(shape=1,alpha=0.5)+
+  theme(legend.position="top")+labs(color="Tool")
 
-ggsave(paste0(PDIR,"decluster_bm_plot2.png"),p)
+p
+ggsave(paste0(PDIR,"decluster_bm_221209_plot2.png"),p)
 
 
 
-p <- ggplot(d, aes(x = tool, y = max_rss_gb)) +
-  xlab("Tool") +
+p <- ggplot(d, aes(color = tool, x = id, y = max_rss_gb)) +
+  xlab("") +
   ylab("Maximum RAM usage (GB)") +
   geom_boxplot()+
   coord_flip()+
   theme_bw()+
-  geom_point(shape=1,alpha=0.5)
+  geom_point(shape=1,alpha=0.5)+
+  theme(legend.position="top")+labs(color="Tool")
+
+p
 
 
-ggsave(paste0(PDIR,"decluster_bm_plot3.png"),p)
+ggsave(paste0(PDIR,"decluster_bm_221209_plot3.png"),p)
 
 
 
-p <- ggplot(d, aes(x = tool, y = time_hms)) +
-  xlab("Tool") +
-  ylab("Runtime (M:S)") +
+p<-ggplot(d, aes(color = tool, x = id, y = time_hms)) +
+  xlab("") +
+  ylab("Runtime (H:M:S)") +
   geom_boxplot()+
   coord_flip()+
   theme_bw()+
   geom_point(shape=1,alpha=0.5)+
-  scale_y_datetime()
+  scale_y_datetime(date_labels = "%H:%M:%S",date_breaks = "5 min")+
+  theme(legend.position="top")+labs(color="Tool")
 
-ggsave(paste0(PDIR,"decluster_bm_plot4.png"),p)
+p
 
 
 
-p <- ggplot(d, aes(x = tool, y = max_vms_mb)) +
-  xlab("Tool") +
+ggsave(paste0(PDIR,"decluster_bm_221209_plot4.png"),p)
+
+
+
+p <- ggplot(d, aes(color = tool, x = id, y = max_vms_mb)) +
+  xlab("") +
   ylab("Maximum virtual memory usage (MB)") +
   geom_boxplot()+
   coord_flip()+
   theme_bw()+
-  geom_point(shape=1,alpha=0.5)
+  geom_point(shape=1,alpha=0.5)+
+  theme(legend.position="top")+labs(color="Tool")
+
+p
 
 
-ggsave(paste0(PDIR,"decluster_bm_plot5.png"),p)
+ggsave(paste0(PDIR,"decluster_bm_221209_plot5.png"),p)
 
 
 
-p <- ggplot(d, aes(x = tool, y = max_vms_gb)) +
-  xlab("Tool") +
+p <- ggplot(d, aes(color = tool, x = id, y = max_vms_gb)) +
+  xlab("") +
   ylab("Maximum virtual memory usage (GB)") +
   geom_boxplot()+
   coord_flip()+
   theme_bw()+
-  geom_point(shape=1,alpha=0.5)
+  geom_point(shape=1,alpha=0.5)+
+  theme(legend.position="top")+labs(color="Tool")
 
-ggsave(paste0(PDIR,"decluster_bm_plot6.png"),p)
+p
+
+ggsave(paste0(PDIR,"decluster_bm_221209_plot6.png"),p)
 
 
 
 
-p <- ggplot(d, aes(x = tool, y = io_in_mb)) +
-  xlab("Tool") +
+p <- ggplot(d, aes(color = tool, x = id, y = io_in_mb)) +
+  xlab("") +
   ylab("Cumulative number of MB read during process") +
   geom_boxplot()+
   coord_flip()+
   theme_bw()+
-  geom_point(shape=1,alpha=0.5)
+  geom_point(shape=1,alpha=0.5)+
+  theme(legend.position="top")+labs(color="Tool")
 
-ggsave(paste0(PDIR,"decluster_bm_plot7.png"),p)
+p
+
+ggsave(paste0(PDIR,"decluster_bm_221209_plot7.png"),p)
 
 
 
-p <- ggplot(d, aes(x = tool, y = io_in_gb)) +
-  xlab("Tool") +
+p <- ggplot(d, aes(color = tool, x = id, y = io_in_gb)) +
+  xlab("") +
   ylab("Cumulative number of GB read during process") +
   geom_boxplot()+
   coord_flip()+
   theme_bw()+
-  geom_point(shape=1,alpha=0.5)
+  geom_point(shape=1,alpha=0.5)+
+  theme(legend.position="top")+labs(color="Tool")
 
-ggsave(paste0(PDIR,"decluster_bm_plot8.png"),p)
+p
+
+ggsave(paste0(PDIR,"decluster_bm_221209_plot8.png"),p)
 
 
 
 
 
-p <- ggplot(d, aes(x = tool, y = io_out_mb)) +
-  xlab("Tool") +
+p <- ggplot(d, aes(color = tool, x = id, y = io_out_mb)) +
+  xlab("") +
   ylab("Cumulative number of MB written during process") +
   geom_boxplot()+
   coord_flip()+
   theme_bw()+
-  geom_point(shape=1,alpha=0.5)
+  geom_point(shape=1,alpha=0.5)+
+  theme(legend.position="top")+labs(color="Tool")
 
-ggsave(paste0(PDIR,"decluster_bm_plot9.png"),p)
+p
+
+ggsave(paste0(PDIR,"decluster_bm_221209_plot9.png"),p)
 
 
 
-p <- ggplot(d, aes(x = tool, y = io_out_gb)) +
-  xlab("Tool") +
+p <- ggplot(d, aes(color = tool, x = id, y = io_out_gb)) +
+  xlab("") +
   ylab("Cumulative number of GB written during process") +
   geom_boxplot()+
   coord_flip()+
   theme_bw()+
-  geom_point(shape=1,alpha=0.5)
+  geom_point(shape=1,alpha=0.5)+
+  theme(legend.position="top")+labs(color="Tool")
 
-ggsave(paste0(PDIR,"decluster_bm_plot10.png"),p)
+p
 
-
+ggsave(paste0(PDIR,"decluster_bm_221209_plot10.png"),p)
 
 

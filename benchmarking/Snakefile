@@ -18,8 +18,6 @@ REF="/maps/projects/lundbeck/data/hg38/genome.fa"
 
 rule all:
 	input:
-		expand("results/clumpify/collapsed_fq/t1/{sample}.fastq",
-				sample=SAMPLE),
 		# expand(WDIR+"results/adapter_removal/{sample}.collapsed.gz",
 				# sample=SAMPLE),
 		# expand(WDIR+"results/bwa_aln/{sample}.collapsed.sai",
@@ -28,27 +26,35 @@ rule all:
 				# sample=SAMPLE),
 		# expand(WDIR+"results/validate_fq/{sample}.validate.out",
 				# sample=SAMPLE),
-		# # expand("results/clumpify/collapsed_fq/{sample}.fastq",
-				# # sample=SAMPLE),
-		# # expand("results/clumpify/collapsed_fq/bwa_aln/{sample}.sai",
-				# # sample=SAMPLE),
-		# # expand("results/clumpify/collapsed_fq/bwa_samse/{sample}_clumpify-dedup.bam",
-				# # sample=SAMPLE),
-		# # expand("results/clumpify/collapsed_fq/preseq/{sample}_clumpify-dedup-preseq.table.txt",
-				# # sample=SAMPLE),
+		# expand("results/clumpify/collapsed_fq/{sample}.fastq",
+				# sample=SAMPLE),
+		# expand("results/clumpify/collapsed_fq/bwa_aln/{sample}.sai",
+				# sample=SAMPLE),
+		# expand("results/clumpify/collapsed_fq/bwa_samse/{sample}_clumpify-dedup.bam",
+				# sample=SAMPLE),
+		# expand("results/clumpify/collapsed_fq/preseq/{sample}_clumpify-dedup-preseq.table.txt",
+				# sample=SAMPLE),
 		# expand("results/decluster/collapsed_bam/preseq/{distmode}/{sample}_collapsed-decluster-preseq.table.txt",
 				# distmode=DIST,
 				# sample=SAMPLE),
 		# expand("results/decluster/collapsed_bam/{distmode}/{sample}.out.noClusterDuplicates.bam",
 				# distmode=DIST,
 				# sample=SAMPLE),
-		# expand("results/decluster/collapsed_bam/{distmode}/F4/{sample}.out.noClusterDuplicates.bam",
-				# distmode=DIST,
+		# "results/benchmark/merged_benchmark",
+		###
+		###
+		###
+		# expand("results/clumpify/collapsed_fq/t1/{sample}.fastq",
 				# sample=SAMPLE),
-		# expand("results/decluster/collapsed_bam/preseq/{distmode}/F4/{sample}_collapsed-decluster-preseq.table.txt",
-				# distmode=DIST,
+		# expand(WDIR+"results/bwa_samse/F4/{sample}_F4.bam",
 				# sample=SAMPLE),
-		# # "results/benchmark/merged_benchmark",
+		expand("results/decluster/collapsed_bam/{distmode}/F4/{sample}.out.noClusterDuplicates.bam",
+				distmode=DIST,
+				sample=SAMPLE),
+		expand("results/decluster/collapsed_bam/preseq/{distmode}/F4/{sample}_collapsed-decluster-preseq.table.txt",
+				distmode=DIST,
+				sample=SAMPLE),
+		"results/benchmark/merged_benchmark_v2"
 
 
 rule validate_fq:
@@ -110,26 +116,26 @@ rule bwa_aln:
 		# ( bwa aln -t {threads} {params.ref} {input.pair2_truncated_gz} -l 32 -f {output.pair2_sai} ) 2> {log}.p2
 
 #get collapsed output
-rule bwa_samse:
-	input:
-		collapsed_gz=WDIR+"results/adapter_removal/{sample}.collapsed.gz",
-		collapsed_sai=WDIR+"results/bwa_aln/{sample}.collapsed.sai",
-	output:
-		WDIR+"results/bwa_samse/{sample}.bam",
-	params:
-		ref=REF,
-		readgroup=r'@RG\tID:{sample}\tSM:{sample}\tLB:collapsed',
-	threads:
-		8
-	log:
-		WDIR+"results/logs/bwa_samse/{sample}.bam",
-	conda:
-		"/maps/projects/lundbeck/scratch/pfs488/decluster/benchmark_2211/decluster_paper_scripts/env/decluster_benchmarking_env.yml"
-	shell:
-		"""
-		( bwa samse -r '{params.readgroup}' {params.ref} {input.collapsed_sai} {input.collapsed_gz} | samtools sort -@{threads} -o {output} ) 2> {log}
-		"""
-
+# rule bwa_samse:
+	# input:
+		# collapsed_gz=WDIR+"results/adapter_removal/{sample}.collapsed.gz",
+		# collapsed_sai=WDIR+"results/bwa_aln/{sample}.collapsed.sai",
+	# output:
+		# WDIR+"results/bwa_samse/{sample}.bam",
+	# params:
+		# ref=REF,
+		# readgroup=r'@RG\tID:{sample}\tSM:{sample}\tLB:collapsed',
+	# threads:
+		# 8
+	# log:
+		# WDIR+"results/logs/bwa_samse/{sample}.bam",
+	# conda:
+		# "/maps/projects/lundbeck/scratch/pfs488/decluster/benchmark_2211/decluster_paper_scripts/env/decluster_benchmarking_env.yml"
+	# shell:
+		# """
+		# ( bwa samse -r '{params.readgroup}' {params.ref} {input.collapsed_sai} {input.collapsed_gz} | samtools sort -@{threads} -o {output} ) 2> {log}
+		# """
+#
 #
 # #get paired output
 # rule bwa_sampe:
@@ -185,9 +191,9 @@ rule run_clumpify_collapsed_disableThreads:
 	params:
 		clumpify="/maps/projects/lundbeck/scratch/pfs488/decluster/benchmark_2211/tools/bbmap/clumpify.sh",
 	log:
-		"results/logs/clumpify/collapsed_fq/t1/{sample}.fastq"
+		"results/logs/clumpify/collapsed_fq/t1/{sample}.out"
 	benchmark:
-		repeat("results/benchmark/clumpify/collapsed_fq/t1/{sample}.fastq",20)
+		repeat("results/benchmark/clumpify/collapsed_fq/t1/{sample}.out",20)
 	shell:
 		"""
 		( bash {params.clumpify} threads=1 -in={input} -out={output} -dupedist=20000 dedupe=t optical=t dupedist=20000 spantiles=t adjacent=t ) 2> {log}
@@ -263,13 +269,13 @@ rule remove_unmapped_F4:
 		WDIR+"results/bwa_samse/{sample}.bam",
 	output:
 		WDIR+"results/bwa_samse/F4/{sample}_F4.bam",
-	params:
-		samtools=""
 	log:
 		WDIR+"results/logs/bwa_samse/F4/{sample}_F4.bam",
+	conda:
+		"/maps/projects/lundbeck/scratch/pfs488/decluster/benchmark_2211/decluster_paper_scripts/env/decluster_benchmarking_env.yml"
 	shell:
 		"""
-		({params.samtools} view -b -F 4 {input} > {output} )2> {log}
+		( samtools view -bh -F 4 {input} > {output} )2> {log}
 		"""
 
 # rule run_decluster_distmode:
@@ -297,7 +303,7 @@ rule run_decluster_distmode_F4:
 		"results/decluster/collapsed_bam/{distmode}/F4/{sample}.out.noClusterDuplicates.bam"
 	params:
 		decluster="/maps/projects/lundbeck/scratch/pfs488/decluster/benchmark_2211/tools/decluster/decluster",
-		prefix="results/decluster/collapsed_bam/{distmode}/{sample}.out"
+		prefix="results/decluster/collapsed_bam/{distmode}/F4/{sample}.out"
 	log:
 		"results/logs/decluster/{distmode}/F4/{sample}.out"
 	benchmark:
@@ -363,6 +369,34 @@ rule collect_benchmark_results:
 			fr=pd.read_csv(f,sep='\t')
 			fr['sample']=sample
 			fr['tool'] = tool.replace("/","_")
+			dfs.append(fr)
+
+		all_dfs=pd.concat(dfs)
+
+		with(open(output[0],'w')) as of:
+			all_dfs.to_csv(of,index=False)
+
+
+# v2: clumpify threads=1, decluster input F4
+rule collect_benchmark_results_v2:
+	output:
+		"results/benchmark/merged_benchmark_v2"
+	run:
+
+		# target:
+		# "results/logs/decluster/{distmode}/F4/{sample}.out"
+		# "results/benchmark/clumpify/collapsed_fq/t1/{sample}.out"
+		bmd = glob_wildcards("results/benchmark/{tool}/{conf1}/{conf2}/{sample}.out")
+		# print(bmd)
+
+		files = [ os.path.abspath("results/benchmark/" + tool + "/" + conf1 + "/" + conf2 + "/" + sample + ".out") for tool,conf1,conf2,sample in zip(bmd.tool,bmd.conf1,bmd.conf2,bmd.sample) ]
+		dfs=[]
+		for f, tool, conf1, conf2, sample in zip(files, bmd.tool,bmd.conf1,bmd.conf2,bmd.sample):
+			fr=pd.read_csv(f,sep='\t')
+			fr['sample']=sample
+			fr['id'] = str(tool) + "_" + str(conf1) + "_" + str(conf2)
+			fr['tool']= tool
+			fr['conf'] = str(conf1) + "_" + str(conf2)
 			dfs.append(fr)
 
 		all_dfs=pd.concat(dfs)
